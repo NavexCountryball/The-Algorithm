@@ -1,0 +1,500 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The Algorithm – Zauberer App</title>
+
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#050509">
+
+<style>
+  :root {
+    --gold: #e6c36a;
+    --bg: #050509;
+    --card-bg: #1a1a1d;
+    --card-border: #333;
+    --text: #f5f5f5;
+  }
+
+  :root[data-theme="gold"] {
+    --bg: #1b1204;
+    --card-bg: #261707;
+    --card-border: #8a6a2a;
+    --text: #fff7e0;
+  }
+
+  body {
+    margin: 0;
+    background: radial-gradient(circle at top, #202030 0, var(--bg) 55%);
+    color: var(--text);
+    font-family: system-ui, sans-serif;
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+  }
+
+  header {
+    text-align: center;
+    padding: 16px 12px 8px;
+    position: relative;
+  }
+
+  h1 {
+    margin: 0;
+    font-weight: 400;
+    letter-spacing: 0.18em;
+    font-size: 1.1rem;
+    color: var(--gold);
+    cursor: pointer; /* für Secret-Tap */
+  }
+
+  .subtitle {
+    font-size: 0.8rem;
+    opacity: 0.8;
+    margin-top: 4px;
+  }
+
+  .theme-toggle {
+    position: absolute;
+    right: 10px;
+    top: 10px;
+    font-size: 0.8rem;
+    padding: 4px 10px;
+    border-radius: 999px;
+    border: 1px solid rgba(230,195,106,0.6);
+    background: transparent;
+    color: var(--gold);
+    cursor: pointer;
+  }
+
+  .deck-wrapper {
+    flex: 1;
+    display: flex;
+    justify-content: center;
+    align-items: stretch;
+  }
+
+  .deck {
+    display: grid;
+    grid-template-columns: repeat(13, minmax(22px, 1fr));
+    gap: 6px;
+    width: 100%;
+    max-width: 900px;
+    padding: 10px;
+  }
+
+  @media (max-width: 600px) {
+    .deck {
+      grid-template-columns: repeat(13, minmax(16px, 1fr));
+      gap: 4px;
+    }
+  }
+
+  .card {
+    background: var(--card-bg);
+    border: 2px solid var(--card-border);
+    border-radius: 8px;
+    padding: 6px;
+    cursor: pointer;
+    transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+    position: relative;
+  }
+
+  .card.selected {
+    border-color: var(--gold);
+    box-shadow: 0 0 12px rgba(230,195,106,0.7);
+    transform: translateY(-3px) scale(1.03);
+  }
+
+  .rank {
+    font-weight: 600;
+    font-size: clamp(0.6rem, 1.4vw, 0.9rem);
+  }
+
+  .suit {
+    font-size: clamp(0.6rem, 1.2vw, 0.8rem);
+  }
+
+  .red { color: #ff6b6b; }
+  .black { color: #f5f5f5; }
+
+  .card-inner {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    transform-style: preserve-3d;
+    transition: transform 0.5s ease;
+  }
+
+  .card.flipped .card-inner {
+    transform: rotateY(180deg);
+  }
+
+  .card-face {
+    position: absolute;
+    inset: 0;
+    backface-visibility: hidden;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .card-back {
+    transform: rotateY(180deg);
+    background: radial-gradient(circle, #444, #111);
+    color: var(--gold);
+    font-size: 0.6rem;
+    letter-spacing: 0.1em;
+  }
+
+  .bottom-panel {
+    padding: 10px;
+    border-top: 1px solid rgba(255,255,255,0.06);
+    background: linear-gradient(to top, rgba(0,0,0,0.7), transparent);
+  }
+
+  .controls {
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+
+  .btn {
+    padding: 10px 18px;
+    border-radius: 999px;
+    border: none;
+    font-size: 0.9rem;
+    font-weight: 500;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    background: var(--gold);
+    color: #201a0b;
+    cursor: pointer;
+    transition: 0.15s;
+  }
+
+  .btn.secondary {
+    background: transparent;
+    color: var(--gold);
+    border: 1px solid rgba(230,195,106,0.5);
+  }
+
+  .reveal {
+    margin-top: 8px;
+    text-align: center;
+    font-size: 0.9rem;
+    opacity: 0;
+    transform: translateY(6px);
+    transition: 0.35s;
+    display: inline-block;
+    padding: 8px 14px;
+    border-radius: 999px;
+    border: 1px solid rgba(255,255,255,0.1);
+    background: rgba(10,10,20,0.9);
+  }
+
+  .reveal.show {
+    opacity: 1;
+    transform: translateY(0);
+    box-shadow: 0 0 18px rgba(230,195,106,0.7);
+    border-color: var(--gold);
+  }
+
+  .reveal-card {
+    font-weight: 600;
+    color: var(--gold);
+  }
+
+  /* Geheimes Zauberer-Menü */
+  .wizard-panel {
+    position: fixed;
+    bottom: 10px;
+    left: 10px;
+    right: 10px;
+    max-width: 420px;
+    margin: 0 auto;
+    background: rgba(5,5,10,0.96);
+    border-radius: 12px;
+    border: 1px solid rgba(230,195,106,0.5);
+    padding: 10px 12px;
+    font-size: 0.8rem;
+    box-shadow: 0 0 18px rgba(0,0,0,0.8);
+    transform: translateY(120%);
+    opacity: 0;
+    transition: 0.3s ease;
+    z-index: 50;
+  }
+
+  .wizard-panel.show {
+    transform: translateY(0);
+    opacity: 1;
+  }
+
+  .wizard-title {
+    font-weight: 600;
+    color: var(--gold);
+    margin-bottom: 4px;
+  }
+
+  .wizard-close {
+    position: absolute;
+    right: 8px;
+    top: 6px;
+    cursor: pointer;
+    font-size: 0.8rem;
+    opacity: 0.8;
+  }
+
+  .wizard-hint {
+    font-size: 0.7rem;
+    opacity: 0.7;
+    margin-top: 4px;
+  }
+</style>
+</head>
+
+<body>
+<header>
+  <h1 id="titleTap">THE ALGORITHM</h1>
+  <div class="subtitle">Zauberer-Modus · 5-Karten-Geheimnis</div>
+  <button class="theme-toggle" id="themeToggle">Gold-Mode</button>
+</header>
+
+<div class="deck-wrapper">
+  <div class="deck" id="deck"></div>
+</div>
+
+<div class="bottom-panel">
+  <div class="controls">
+    <button class="btn" id="btnCalc">Geheime Karte berechnen</button>
+    <button class="btn secondary" id="btnReset">Zurücksetzen</button>
+  </div>
+  <div style="text-align:center; margin-top:6px;">
+    <span class="reveal" id="reveal">Die geheime Karte erscheint hier…</span>
+  </div>
+</div>
+
+<!-- Geheimes Zauberer-Menü -->
+<div class="wizard-panel" id="wizardPanel">
+  <div class="wizard-close" id="wizardClose">✕</div>
+  <div class="wizard-title">Zauberer-Menü</div>
+  <div>
+    • 5 Karten: 2 gleiche Farbe, eine davon ist geheim, die andere ist Karte 1.<br>
+    • Die letzten 3 Karten kodieren die Distanz (1–6) über ihre Reihenfolge.<br>
+    • App: Karte 1 + Distanz → geheime Karte.
+  </div>
+  <div class="wizard-hint">
+    Hinweis: Dieses Menü ist nur über einen versteckten Tap auf den Titel erreichbar.
+  </div>
+</div>
+
+<audio id="revealSound">
+  <source src="data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAESsAACJWAAACABAAZGF0YQAAAAA=" type="audio/wav">
+</audio>
+
+<script>
+const ranks = [
+  { name: "A", value: 1 },
+  { name: "2", value: 2 },
+  { name: "3", value: 3 },
+  { name: "4", value: 4 },
+  { name: "5", value: 5 },
+  { name: "6", value: 6 },
+  { name: "7", value: 7 },
+  { name: "8", value: 8 },
+  { name: "9", value: 9 },
+  { name: "10", value: 10 },
+  { name: "J", value: 11 },
+  { name: "Q", value: 12 },
+  { name: "K", value: 13 }
+];
+
+const suits = [
+  { name: "♣", value: 0, color: "black" },
+  { name: "♠", value: 1, color: "black" },
+  { name: "♥", value: 2, color: "red" },
+  { name: "♦", value: 3, color: "red" }
+];
+
+const deckEl = document.getElementById("deck");
+const revealEl = document.getElementById("reveal");
+const revealSound = document.getElementById("revealSound");
+const themeToggle = document.getElementById("themeToggle");
+const wizardPanel = document.getElementById("wizardPanel");
+const wizardClose = document.getElementById("wizardClose");
+const titleTap = document.getElementById("titleTap");
+
+let selected = [];
+let tapCount = 0;
+let tapTimer = null;
+
+function createDeck() {
+  ranks.forEach(r => {
+    suits.forEach(s => {
+      const card = document.createElement("div");
+      card.className = "card";
+      card.dataset.rank = r.value;
+      card.dataset.suit = s.value;
+
+      const inner = document.createElement("div");
+      inner.className = "card-inner";
+
+      const front = document.createElement("div");
+      front.className = "card-face card-front";
+      front.innerHTML = `
+        <div class="rank ${s.color}">${r.name}</div>
+        <div class="suit ${s.color}">${s.name}</div>
+      `;
+
+      const back = document.createElement("div");
+      back.className = "card-face card-back";
+      back.textContent = "THE ALGORITHM";
+
+      inner.appendChild(front);
+      inner.appendChild(back);
+      card.appendChild(inner);
+
+      card.addEventListener("click", () => onCardClick(card));
+      deckEl.appendChild(card);
+    });
+  });
+}
+
+function onCardClick(card) {
+  const rank = parseInt(card.dataset.rank);
+  const suit = parseInt(card.dataset.suit);
+
+  if (card.classList.contains("selected")) {
+    card.classList.remove("selected");
+    selected = selected.filter(c => c.el !== card);
+  } else {
+    if (selected.length < 4) {
+      card.classList.add("selected");
+      selected.push({ rank, suit, el: card });
+    }
+  }
+
+  revealEl.classList.remove("show");
+}
+
+function decodeHiddenCard(cards) {
+  const first = cards[0];
+  const hiddenSuit = first.suit;
+
+  const lastThree = cards.slice(1);
+  const sorted = [...lastThree].sort((a, b) => a.rank - b.rank);
+  const A = sorted[0], B = sorted[1], C = sorted[2];
+
+  function label(card) {
+    if (card.rank === A.rank && card.suit === A.suit) return "A";
+    if (card.rank === B.rank && card.suit === B.suit) return "B";
+    if (card.rank === C.rank && card.suit === C.suit) return "C";
+  }
+
+  const pattern = lastThree.map(label).join("");
+
+  const map = {
+    "ABC": 1, "ACB": 2, "BAC": 3,
+    "BCA": 4, "CAB": 5, "CBA": 6
+  };
+
+  let distance = map[pattern];
+  if (!distance) return null;
+
+  let hiddenRank = first.rank + distance;
+  while (hiddenRank > 13) hiddenRank -= 13;
+
+  return { rank: hiddenRank, suit: hiddenSuit };
+}
+
+document.getElementById("btnCalc").addEventListener("click", () => {
+  if (selected.length !== 4) {
+    showReveal("Bitte genau 4 Karten auswählen.");
+    return;
+  }
+
+  const cards = selected.map(c => ({ rank: c.rank, suit: c.suit }));
+  const hidden = decodeHiddenCard(cards);
+
+  if (!hidden) {
+    showReveal("Permutation ungültig.");
+    return;
+  }
+
+  const r = ranks.find(x => x.value === hidden.rank).name;
+  const s = suits.find(x => x.value === hidden.suit);
+
+  showReveal(`Die geheime Karte ist: <span class="reveal-card">${r} ${s.name}</span>`, true);
+
+  const hiddenCard = [...deckEl.children].find(c =>
+    parseInt(c.dataset.rank) === hidden.rank &&
+    parseInt(c.dataset.suit) === hidden.suit
+  );
+
+  if (hiddenCard) hiddenCard.classList.add("flipped");
+});
+
+document.getElementById("btnReset").addEventListener("click", () => {
+  selected.forEach(c => c.el.classList.remove("selected", "flipped"));
+  selected = [];
+  revealEl.classList.remove("show");
+  revealEl.innerHTML = "Die geheime Karte erscheint hier…";
+});
+
+function showReveal(html, sound = false) {
+  revealEl.innerHTML = html;
+  revealEl.classList.add("show");
+  if (sound) {
+    revealSound.currentTime = 0;
+    revealSound.play().catch(() => {});
+  }
+}
+
+/* Theme Switch */
+themeToggle.addEventListener("click", () => {
+  const root = document.documentElement;
+  const current = root.getAttribute("data-theme");
+  if (current === "gold") {
+    root.setAttribute("data-theme", "dark");
+    themeToggle.textContent = "Gold-Mode";
+  } else {
+    root.setAttribute("data-theme", "gold");
+    themeToggle.textContent = "Dark-Mode";
+  }
+});
+
+/* Geheimes Zauberer-Menü: 3 Taps auf den Titel in 1.5s */
+titleTap.addEventListener("click", () => {
+  tapCount++;
+  if (!tapTimer) {
+    tapTimer = setTimeout(() => {
+      tapCount = 0;
+      tapTimer = null;
+    }, 1500);
+  }
+  if (tapCount >= 3) {
+    tapCount = 0;
+    clearTimeout(tapTimer);
+    tapTimer = null;
+    wizardPanel.classList.add("show");
+  }
+});
+
+wizardClose.addEventListener("click", () => {
+  wizardPanel.classList.remove("show");
+});
+
+/* PWA: Service Worker registrieren */
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("sw.js").catch(() => {});
+  });
+}
+
+createDeck();
+</script>
+</body>
+</html>
